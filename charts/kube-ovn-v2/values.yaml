@@ -277,6 +277,13 @@ validatingWebhook:
   # -- Enable the deployment of the validating webhook.
   # @section -- Validating webhook configuration
   enabled: false
+  certificate:
+    # -- Create the webhook Certificate and self-signed Issuer. Set to false to manage the Certificate externally while keeping the webhook enabled.
+    # The external Certificate must be named kube-ovn-webhook-serving-cert in the configured namespace,
+    # write to kube-ovn-webhook-secret, and include the webhook Service DNS names.
+    # cert-manager must remain installed for CA bundle injection. See the README for an example.
+    # @section -- Validating webhook configuration
+    create: true
   # -- Annotations to be added to all top-level kube-ovn-webhook objects (resources under templates/webhook)
   # @section -- Validating webhook configuration
   annotations: {}

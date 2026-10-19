@@ -1,6 +1,6 @@
 # Helm chart for Kube-OVN
 
-![Version: v1.16.0](https://img.shields.io/badge/Version-v1.16.0-informational?style=flat-square)
+![Version: v1.16.2](https://img.shields.io/badge/Version-v1.16.2-informational?style=flat-square)
 
 This is the v2 of the Helm Chart, replacing the first version in the long term.
 Make sure to adjust your old values with the new ones and pre-generate your templates with a dry-run to ensure no breaking change occurs.
@@ -12,7 +12,7 @@ Make sure to adjust your old values with the new ones and pre-generate your temp
 The Helm chart is available from GitHub Container Registry:
 
 ```bash
-helm install kube-ovn oci://ghcr.io/kubeovn/charts/kube-ovn-v2 --version v1.16.0
+helm install kube-ovn oci://ghcr.io/kubeovn/charts/kube-ovn-v2 --version v1.16.2
 ```
 
 ### From Source
@@ -42,6 +42,58 @@ ovsOvn:
 cni:
   mountToolingDirectory: false
 ```
+
+## Externally managed webhook certificates
+
+By default, enabling the validating webhook creates a cert-manager Certificate and
+a self-signed Issuer. To use your own Certificate specification and existing
+Issuer or ClusterIssuer, keep the webhook enabled and disable only certificate
+creation:
+
+```yaml
+validatingWebhook:
+  enabled: true
+  certificate:
+    create: false
+```
+
+Manage the replacement Certificate outside this chart, for example in a parent
+chart. It must be named `kube-ovn-webhook-serving-cert` in the configured
+`namespace` and write to `kube-ovn-webhook-secret`. Include all three Service DNS
+names, substituting your configured `namespace` and `clusterDomain`:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kube-ovn-webhook-serving-cert
+  namespace: kube-system
+spec:
+  secretName: kube-ovn-webhook-secret
+  dnsNames:
+    - kube-ovn-webhook.kube-system
+    - kube-ovn-webhook.kube-system.svc
+    - kube-ovn-webhook.kube-system.svc.cluster.local
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: existing-webhook-issuer
+```
+
+The referenced Issuer must already exist in the Certificate namespace, or use
+`kind: ClusterIssuer` for a cluster-scoped issuer. Add any certificate policy
+fields required by your environment to this external Certificate.
+
+cert-manager and its CA injector are still required: the webhook configuration
+continues to reference this Certificate for CA bundle injection. The Certificate
+must populate the Secret with `tls.crt`, `tls.key`, and `ca.crt` before the webhook
+can serve requests.
+
+For an existing installation, plan the Certificate ownership transfer before
+changing this setting. Helm removes the previously managed Certificate and Issuer
+on upgrade; simply applying another Certificate with the same name does not
+transfer ownership. Secret deletion also depends on cert-manager owner-reference
+configuration.
 
 ## How to regenerate this README
 
@@ -584,7 +636,7 @@ false
   "images": {
     "kubeovn": {
       "repository": "kube-ovn",
-      "tag": "v1.16.0"
+      "tag": "v1.16.2"
     }
   },
   "registry": {
@@ -1356,7 +1408,7 @@ false
 			<td>natGw.bgpSpeaker.image.tag</td>
 			<td>string</td>
 			<td><pre lang="json">
-"v1.16.0"
+"v1.16.2"
 </pre>
 </td>
 			<td>Image tag.</td>
@@ -1392,7 +1444,7 @@ false
 			<td>natGw.image.tag</td>
 			<td>string</td>
 			<td><pre lang="json">
-"v1.16.0"
+"v1.16.2"
 </pre>
 </td>
 			<td>Image tag.</td>
@@ -1894,7 +1946,7 @@ false
 			<td>ovsOvn.dpdkHybrid.tag</td>
 			<td>string</td>
 			<td><pre lang="json">
-"v1.16.0"
+"v1.16.2"
 </pre>
 </td>
 			<td>DPDK image tag.</td>
@@ -2266,6 +2318,15 @@ false
 </pre>
 </td>
 			<td>Annotations to be added to all top-level kube-ovn-webhook objects (resources under templates/webhook)</td>
+		</tr>
+		<tr>
+			<td>validatingWebhook.certificate.create</td>
+			<td>bool</td>
+			<td><pre lang="json">
+true
+</pre>
+</td>
+			<td>Create the webhook Certificate and self-signed Issuer. Set to false to manage the Certificate externally while keeping the webhook enabled. The external Certificate must be named kube-ovn-webhook-serving-cert in the configured namespace, write to kube-ovn-webhook-secret, and include the webhook Service DNS names. cert-manager must remain installed for CA bundle injection. See the README for an example.</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.enabled</td>
